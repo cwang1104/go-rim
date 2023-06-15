@@ -3,8 +3,9 @@ package ws
 import (
 	"context"
 	"errors"
-	"net"
 	"sync/atomic"
+
+	"github.com/gorilla/websocket"
 )
 
 var ErrorConnClosed = errors.New("conn is already closed.")
@@ -15,7 +16,7 @@ type ConnInfo struct {
 }
 
 type Conn struct {
-	socket              net.Conn
+	websocket           *websocket.Conn
 	context             context.Context
 	writeChan, readChan chan *Msg
 
@@ -24,9 +25,9 @@ type Conn struct {
 	closed int32
 }
 
-func NewConn(conn net.Conn) *Conn {
+func NewConn(conn *websocket.Conn) *Conn {
 	return &Conn{
-		socket:    conn,
+		websocket: conn,
 		context:   context.TODO(),
 		writeChan: make(chan *Msg, 1<<7),
 		readChan:  make(chan *Msg, 1<<7),
@@ -69,19 +70,41 @@ func (c *Conn) ReadFromReadChan() *Msg {
 	return <-c.readChan
 }
 
-func (c *Conn) Read(p []byte) (n int, err error) {
-	return c.socket.Read(p)
+func (c *Conn) Reader() error {
+	for {
+
+		msg, err := Read(c.websocket)
+		if err != nil {
+			c.SetClose()
+			close(c.signal)
+			return err
+		}
+		c.readChan <- msg
+	}
 }
 
-func (c *Conn) Write(b []byte) (n int, err error) {
-	return c.socket.Write(b)
+func (c *Conn) Writer() error {
+	for {
+		select {
+		case msg := <-c.writeChan:
+			err := Write(c.websocket, msg)
+			if err != nil {
+				return err
+			}
+		case <-c.signal:
+			return ErrorConnClosed
+		}
+	}
+}
+
+func (c *Conn) SetClose() {
+	atomic.StoreInt32(&c.closed, 1)
 }
 
 func (c *Conn) Close() error {
-	if c.CheckClosed() {
-		return ErrorConnClosed
-	}
-	c.closed = 1
-	c.signal <- struct{}{}
-	return c.socket.Close()
+	return c.websocket.Close()
+}
+
+func (c *Conn) Done() <-chan struct{} {
+	return c.signal
 }
