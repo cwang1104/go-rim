@@ -66,8 +66,8 @@ func (c *Conn) SendToWriteChan(ctx context.Context, msg *Msg) error {
 	return nil
 }
 
-func (c *Conn) ReadFromReadChan() *Msg {
-	return <-c.readChan
+func (c *Conn) ReadFromReadChan() <-chan *Msg {
+	return c.readChan
 }
 
 func (c *Conn) Reader() error {
