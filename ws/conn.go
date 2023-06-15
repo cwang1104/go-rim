@@ -72,3 +72,16 @@ func (c *Conn) ReadFromReadChan() *Msg {
 func (c *Conn) Read(p []byte) (n int, err error) {
 	return c.socket.Read(p)
 }
+
+func (c *Conn) Write(b []byte) (n int, err error) {
+	return c.socket.Write(b)
+}
+
+func (c *Conn) Close() error {
+	if c.CheckClosed() {
+		return ErrorConnClosed
+	}
+	c.closed = 1
+	c.signal <- struct{}{}
+	return c.socket.Close()
+}
