@@ -18,12 +18,11 @@ var upgrader = websocket.Upgrader{
 type Server struct {
 	context context.Context
 
-	allOidContainer map[int64]int64
-	connContainer   map[int64]*Conn
-	mux             sync.RWMutex
+	container map[int64]map[int64]*Conn
+	mux       sync.RWMutex
 }
 
-func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHeader http.Header) error {
+func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHeader http.Header, uid int64, oids []int64) error {
 	websockt, err := upgrader.Upgrade(w, r, responseHeader)
 	if err != nil {
 		return err
@@ -45,6 +44,13 @@ func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHead
 	return nil
 }
 
-func (s *Server) handleMsg(msg *Msg) {
+func (s *Server) addConn(uid int64, oids []int64) {
 
+}
+
+func (s *Server) handleMsg(msg *Msg) {
+	switch msg.MsgType {
+	case Ping:
+
+	}
 }
