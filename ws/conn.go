@@ -72,8 +72,8 @@ func (c *Conn) ReadFromReadChan() <-chan *Msg {
 
 func (c *Conn) Reader() error {
 	for {
-
 		msg, err := Read(c.websocket)
+		//log.Println("read: ", msg)
 		if err != nil {
 			c.SetClose()
 			close(c.signal)
@@ -99,6 +99,7 @@ func (c *Conn) Writer() error {
 
 func (c *Conn) SetClose() {
 	atomic.StoreInt32(&c.closed, 1)
+	c.Close()
 }
 
 func (c *Conn) Close() error {
