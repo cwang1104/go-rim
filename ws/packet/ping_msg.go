@@ -1,4 +1,4 @@
-package ws
+package packet
 
 type PingMessage struct {
 	Text string `json:"text"`

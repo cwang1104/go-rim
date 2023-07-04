@@ -1,9 +1,10 @@
-package ws
+package socket
 
 import (
 	"context"
 	"errors"
 	"sync/atomic"
+	"ws/ws/packet"
 
 	"github.com/gorilla/websocket"
 )
@@ -18,7 +19,7 @@ type ConnInfo struct {
 type Conn struct {
 	websocket           *websocket.Conn
 	context             context.Context
-	writeChan, readChan chan *Msg
+	writeChan, readChan chan *packet.Msg
 
 	Info   ConnInfo
 	signal chan struct{}
@@ -29,8 +30,8 @@ func NewConn(conn *websocket.Conn) *Conn {
 	return &Conn{
 		websocket: conn,
 		context:   context.TODO(),
-		writeChan: make(chan *Msg, 1<<7),
-		readChan:  make(chan *Msg, 1<<7),
+		writeChan: make(chan *packet.Msg, 1<<7),
+		readChan:  make(chan *packet.Msg, 1<<7),
 		signal:    make(chan struct{}),
 		Info:      ConnInfo{},
 		closed:    0,
@@ -53,7 +54,7 @@ func (c *Conn) CheckClosed() bool {
 	}
 }
 
-func (c *Conn) SendToWriteChan(ctx context.Context, msg *Msg) error {
+func (c *Conn) SendToWriteChan(ctx context.Context, msg *packet.Msg) error {
 	if c.CheckClosed() {
 		return ErrorConnClosed
 	}
@@ -66,13 +67,13 @@ func (c *Conn) SendToWriteChan(ctx context.Context, msg *Msg) error {
 	return nil
 }
 
-func (c *Conn) ReadFromReadChan() <-chan *Msg {
+func (c *Conn) ReadFromReadChan() <-chan *packet.Msg {
 	return c.readChan
 }
 
 func (c *Conn) Reader() error {
 	for {
-		msg, err := Read(c.websocket)
+		msg, err := packet.NormalRead(c.websocket)
 		//log.Println("read: ", msg)
 		if err != nil {
 			c.SetClose()
@@ -87,7 +88,7 @@ func (c *Conn) Writer() error {
 	for {
 		select {
 		case msg := <-c.writeChan:
-			err := Write(c.websocket, msg)
+			err := packet.Write(c.websocket, msg)
 			if err != nil {
 				return err
 			}

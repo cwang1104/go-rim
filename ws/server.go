@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"ws/ws/packet"
+	"ws/ws/socket"
 
 	"github.com/gorilla/websocket"
 )
@@ -25,7 +27,7 @@ var upgrader = websocket.Upgrader{
 type Server struct {
 	context context.Context
 
-	container map[int64]map[int64]*Conn
+	container map[int64]map[int64]*socket.Conn
 	mux       sync.RWMutex
 }
 
@@ -34,7 +36,7 @@ var WsServer *Server
 func init() {
 	WsServer = &Server{
 		context:   context.TODO(),
-		container: make(map[int64]map[int64]*Conn),
+		container: make(map[int64]map[int64]*socket.Conn),
 	}
 }
 
@@ -44,7 +46,7 @@ func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHead
 		return err
 	}
 	defer s.Close(uid, oids)
-	conn := NewConn(websockt)
+	conn := socket.NewConn(websockt)
 	conn.SetConnInfo(uid, 0)
 
 	s.addConn(conn, uid, oids)
@@ -70,7 +72,7 @@ func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHead
 	return nil
 }
 
-func (s *Server) Broadcast(oid int64, msg *Msg) {
+func (s *Server) Broadcast(oid int64, msg *packet.Msg) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	for _, v := range s.container {
@@ -80,7 +82,7 @@ func (s *Server) Broadcast(oid int64, msg *Msg) {
 	}
 }
 
-func (s *Server) addConn(conn *Conn, uid int64, oids []int64) {
+func (s *Server) addConn(conn *socket.Conn, uid int64, oids []int64) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	for _, v := range oids {
@@ -88,7 +90,7 @@ func (s *Server) addConn(conn *Conn, uid int64, oids []int64) {
 		if ok {
 			val[uid] = conn
 		} else {
-			m := make(map[int64]*Conn)
+			m := make(map[int64]*socket.Conn)
 			m[uid] = conn
 			s.container[v] = m
 		}
@@ -108,16 +110,26 @@ func (s *Server) removeConn(uid int64, oids ...int64) {
 	}
 }
 
-func (s *Server) handleMsg(conn *Conn, msg *Msg) {
-	var resMsg *Msg
+func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
+	var resMsg *packet.Msg
 	//body := msg.Content
 	switch msg.MsgType {
-	case Ping:
-		resMsg = NewV1Msg(Pong)
-		resMsg.Content = NewPongMessage()
-	case Quit:
+	case packet.Ping:
+		resMsg = packet.NewV1Msg(packet.Pong)
+		resMsg.Content = packet.NewPongMessage()
+	case packet.Quit:
 		//todo: 获取oids
 		s.removeConn(conn.Info.UserID, 1)
+	case packet.Chat:
+		chatMsg, err := packet.ContentToStruct[packet.SentChatMsg](msg.Content)
+		if err != nil {
+			return
+		}
+		fmt.Println(chatMsg)
+	case packet.ChatAck:
+
+	case packet.Push:
+
 		return
 	}
 
@@ -133,7 +145,7 @@ func (s *Server) handleMsg(conn *Conn, msg *Msg) {
 	}
 }
 
-func (s *Server) handleQuitMsg(conn *Conn) {
+func (s *Server) handleQuitMsg(conn *socket.Conn) {
 	mysqlOids := make([]int64, 1)
 	s.removeConn(conn.Info.UserID, mysqlOids...)
 }
