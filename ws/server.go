@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -27,7 +28,7 @@ var upgrader = websocket.Upgrader{
 type Server struct {
 	context context.Context
 
-	container map[int64]map[int64]*socket.Conn
+	container map[int64]*socket.Conn
 	mux       sync.RWMutex
 }
 
@@ -36,78 +37,93 @@ var WsServer *Server
 func init() {
 	WsServer = &Server{
 		context:   context.TODO(),
-		container: make(map[int64]map[int64]*socket.Conn),
+		container: make(map[int64]*socket.Conn),
 	}
 }
 
-func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHeader http.Header, uid int64, oids []int64) error {
+func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHeader http.Header) error {
 	websockt, err := upgrader.Upgrade(w, r, responseHeader)
 	if err != nil {
 		return err
 	}
-	defer s.Close(uid, oids)
-	conn := socket.NewConn(websockt)
-	conn.SetConnInfo(uid, 0)
+	return s.login(websockt)
 
-	s.addConn(conn, uid, oids)
-	log.Println("uid: ", uid)
-	log.Println("oids: ", oids)
-	go conn.Reader()
-	go conn.Writer()
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	fmt.Println(s.container)
-	for {
-		select {
-		case <-timer.C:
-			return errors.New("time out")
-		case <-conn.Done():
-			return err
-		case msg := <-conn.ReadFromReadChan():
-			timer.Reset(timeout)
-			s.handleMsg(conn, msg)
-		}
+}
+
+func (s *Server) login(WebSocketConn *websocket.Conn) error {
+	_, data, err := WebSocketConn.ReadMessage()
+	if err != nil {
+		return err
 	}
+	authMsg := packet.NewV1Msg(packet.Auth)
+	authMsg.Content = packet.AuthMsg{}
+	err = json.Unmarshal(data, authMsg)
+	if err != nil {
+		return err
+	}
+	//todo：验证token正确
+	if true {
+		var uid int64 = 10
 
-	return nil
+		defer s.Close(uid)
+		conn := socket.NewConn(WebSocketConn)
+		conn.SetConnInfo(uid)
+
+		s.addConn(conn, uid)
+		log.Println("uid: ", uid)
+
+		go conn.Reader()
+		go conn.Writer()
+
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-timer.C:
+				return errors.New("time out")
+			case <-conn.Done():
+				return err
+			case msg := <-conn.ReadFromReadChan():
+				timer.Reset(timeout)
+				s.handleMsg(conn, msg)
+			}
+		}
+
+		return nil
+
+	} else {
+		return nil
+	}
 }
 
 func (s *Server) Broadcast(oid int64, msg *packet.Msg) {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	for _, v := range s.container {
-		for _, conn := range v {
-			_ = conn.SendToWriteChan(context.TODO(), msg)
-		}
-	}
+	//s.mux.RLock()
+	//defer s.mux.RUnlock()
+	//for _, v := range s.container {
+	//	for _, conn := range v {
+	//		_ = conn.SendToWriteChan(context.TODO(), msg)
+	//	}
+	//}
 }
 
-func (s *Server) addConn(conn *socket.Conn, uid int64, oids []int64) {
+func (s *Server) addConn(conn *socket.Conn, uid int64) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	for _, v := range oids {
-		val, ok := s.container[v]
-		if ok {
-			val[uid] = conn
-		} else {
-			m := make(map[int64]*socket.Conn)
-			m[uid] = conn
-			s.container[v] = m
-		}
-	}
+	s.container[uid] = conn
 }
 
-func (s *Server) removeConn(uid int64, oids ...int64) {
+func (s *Server) removeConn(uid int64) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	for _, v := range oids {
-		val, ok := s.container[v]
-		if !ok {
-			continue
-		} else {
-			delete(val, uid)
-		}
-	}
+	//for _, v := range oids {
+	//	val, ok := s.container[v]
+	//	if !ok {
+	//		continue
+	//	} else {
+	//		delete(val, uid)
+	//	}
+	//}
 }
 
 func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
@@ -118,8 +134,8 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 		resMsg = packet.NewV1Msg(packet.Pong)
 		resMsg.Content = packet.NewPongMessage()
 	case packet.Quit:
-		//todo: 获取oids
-		s.removeConn(conn.Info.UserID, 1)
+
+		s.removeConn(conn.Info.UserID)
 	case packet.Chat:
 		chatMsg, err := packet.ContentToStruct[packet.SentChatMsg](msg.Content)
 		if err != nil {
@@ -146,11 +162,11 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 }
 
 func (s *Server) handleQuitMsg(conn *socket.Conn) {
-	mysqlOids := make([]int64, 1)
-	s.removeConn(conn.Info.UserID, mysqlOids...)
+
+	s.removeConn(conn.Info.UserID)
 }
 
-func (s *Server) Close(uid int64, oids []int64) {
-	s.removeConn(uid, oids...)
+func (s *Server) Close(uid int64) {
+	s.removeConn(uid)
 	fmt.Println(s.container)
 }

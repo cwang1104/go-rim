@@ -12,8 +12,7 @@ import (
 var ErrorConnClosed = errors.New("conn is already closed.")
 
 type ConnInfo struct {
-	UserID     int64
-	CurrentOid int64
+	UserID int64
 }
 
 type Conn struct {
@@ -38,10 +37,9 @@ func NewConn(conn *websocket.Conn) *Conn {
 	}
 }
 
-func (c *Conn) SetConnInfo(uid int64, oid int64) *Conn {
+func (c *Conn) SetConnInfo(uid int64) *Conn {
 	c.Info = ConnInfo{
-		UserID:     uid,
-		CurrentOid: oid,
+		UserID: uid,
 	}
 	return c
 }

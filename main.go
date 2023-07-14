@@ -15,7 +15,7 @@ func main() {
 	r := gin.Default()
 
 	r.GET("/api/ws", func(c *gin.Context) {
-		ws.WsServer.JoinServer(c.Writer, c.Request, nil, id(), []int64{12000, 22000})
+		ws.WsServer.JoinServer(c.Writer, c.Request, nil)
 	})
 
 	r.Run(":60000")

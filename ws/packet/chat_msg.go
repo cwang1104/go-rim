@@ -18,6 +18,11 @@ const (
 	HasRead MsgReadStatus = iota + 1
 )
 
+const (
+	TypeYes uint8 = 1
+	TypeNo  uint8 = 0
+)
+
 // SentChatMsg 单聊、发送的消息
 type SentChatMsg struct {
 	Text      string      `json:"text"`
@@ -35,6 +40,7 @@ type ChatMsg struct {
 	MsgID      int64         `json:"msgID"`      //消息id
 	FileInfo   *FileInfo     `json:"fileInfo"`   //图片或者视频消息信息
 	IsRead     MsgReadStatus `json:"isRead"`     //是否已读
+	IsReceive  uint8         `json:"isReceive"`  //是否收到
 	IsPeerRead MsgReadStatus `json:"isPeerRead"` //自己已读
 	MsgType    ChatMsgType   `json:"msgType"`    //消息类型
 	Text       string        `json:"text"`       //消息文本内容
