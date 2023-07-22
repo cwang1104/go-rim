@@ -34,7 +34,7 @@ type SentChatMsg struct {
 	Timestamp int64  `json:"timestamp"`
 }
 
-// ChatMsg 回执、通知类消息
+// ChatMsg 回执、通知类、收到的聊天的消息
 type ChatMsg struct {
 	SessionId  int64         `json:"sessionId"`
 	SeqID      int64         `json:"seqID"`      //消息排序id
