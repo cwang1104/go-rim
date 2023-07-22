@@ -41,60 +41,65 @@ func init() {
 	}
 }
 
-func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHeader http.Header) error {
+func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHeader http.Header) {
 	websockt, err := upgrader.Upgrade(w, r, responseHeader)
 	if err != nil {
-		return err
+		log.Println("upgrade ws failed:", err)
+		return
 	}
-	return s.login(websockt)
-
+	s.proc(websockt)
 }
 
-func (s *Server) login(WebSocketConn *websocket.Conn) error {
-	_, data, err := WebSocketConn.ReadMessage()
+func (s *Server) login(wsConn *websocket.Conn) (uid int64, err error) {
+	_, data, err := wsConn.ReadMessage()
 	if err != nil {
-		return err
+		return 0, err
 	}
+
 	authMsg := packet.NewV1Msg(packet.Auth)
 	authMsg.Content = packet.AuthMsg{}
 	err = json.Unmarshal(data, authMsg)
+
+	if authMsg.MsgType != packet.Auth {
+		return 0, errors.New("need auth first")
+	}
+
+	//todo: 验证token正确，返回uid
+	uid = 10
+	log.Printf("user %d login success", err)
+	return
+}
+
+func (s *Server) proc(WebSocketConn *websocket.Conn) {
+
+	uid, err := s.login(WebSocketConn)
 	if err != nil {
-		return err
+		return
 	}
-	//todo：验证token正确
-	if true {
-		var uid int64 = 10
+	conn := socket.NewConn(WebSocketConn)
+	defer conn.Close()
+	s.addConn(conn, uid)
 
-		defer s.Close(uid)
-		conn := socket.NewConn(WebSocketConn)
-		conn.SetConnInfo(uid)
+	go conn.Reader()
+	go conn.Writer()
 
-		s.addConn(conn, uid)
-		log.Println("uid: ", uid)
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 
-		go conn.Reader()
-		go conn.Writer()
-
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
-
-		for {
-			select {
-			case <-timer.C:
-				return errors.New("time out")
-			case <-conn.Done():
-				return err
-			case msg := <-conn.ReadFromReadChan():
-				timer.Reset(timeout)
-				s.handleMsg(conn, msg)
-			}
+	for {
+		select {
+		case <-timer.C:
+			log.Println("time out ", conn.Info.UserID)
+			return
+		case <-conn.Done():
+			log.Println("done ", conn.Info.UserID)
+			return
+		case msg := <-conn.ReadFromReadChan():
+			timer.Reset(timeout)
+			s.handleMsg(conn, msg)
 		}
-
-		return nil
-
-	} else {
-		return nil
 	}
+
 }
 
 func (s *Server) Broadcast(oid int64, msg *packet.Msg) {
@@ -116,14 +121,11 @@ func (s *Server) addConn(conn *socket.Conn, uid int64) {
 func (s *Server) removeConn(uid int64) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	//for _, v := range oids {
-	//	val, ok := s.container[v]
-	//	if !ok {
-	//		continue
-	//	} else {
-	//		delete(val, uid)
-	//	}
-	//}
+	if val, ok := s.container[uid]; ok {
+		val.Close()
+	}
+	log.Printf("user %d login out", uid)
+	delete(s.container, uid)
 }
 
 func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
@@ -134,18 +136,23 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 		resMsg = packet.NewV1Msg(packet.Pong)
 		resMsg.Content = packet.NewPongMessage()
 	case packet.Quit:
-
-		s.removeConn(conn.Info.UserID)
+		s.handleQuitMsg(conn)
 	case packet.Chat:
 		chatMsg, err := packet.ContentToStruct[packet.SentChatMsg](msg.Content)
 		if err != nil {
 			return
 		}
-		fmt.Println(chatMsg)
+		chatResp, err := s.handleChatMsg(conn, chatMsg)
+		if err != nil {
+			return
+		}
+
+		resMsg = packet.NewV1Msg(packet.ChatAck)
+		resMsg.Content = chatResp
+
 	case packet.ChatAck:
 
 	case packet.Push:
-
 		return
 	}
 
@@ -162,8 +169,28 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 }
 
 func (s *Server) handleQuitMsg(conn *socket.Conn) {
-
 	s.removeConn(conn.Info.UserID)
+}
+
+func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*packet.ChatMsg, error) {
+	msg.Timestamp = time.Now().Unix()
+
+	respMsg := packet.ChatMsg{
+		SessionId:  0,
+		MsgID:      0,
+		SeqID:      0,
+		IsRead:     packet.HasRead,
+		IsPeerRead: packet.UnRead,
+		//IsReceive:  packet.TypeYes,
+		ReceiveID: msg.ReceiveID,
+		MsgType:   packet.Ack,
+		Sender: &packet.SenderInfo{
+			UserID: conn.Info.UserID,
+		},
+		Timestamp: msg.Timestamp,
+	}
+
+	return &respMsg, nil
 }
 
 func (s *Server) Close(uid int64) {

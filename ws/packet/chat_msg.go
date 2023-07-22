@@ -36,6 +36,7 @@ type SentChatMsg struct {
 
 // ChatMsg 回执、通知类消息
 type ChatMsg struct {
+	SessionId  int64         `json:"sessionId"`
 	SeqID      int64         `json:"seqID"`      //消息排序id
 	MsgID      int64         `json:"msgID"`      //消息id
 	FileInfo   *FileInfo     `json:"fileInfo"`   //图片或者视频消息信息
