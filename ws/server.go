@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"ws/pkg/util"
 	"ws/ws/packet"
 	"ws/ws/socket"
 
@@ -64,8 +65,15 @@ func (s *Server) login(wsConn *websocket.Conn) (uid int64, err error) {
 		return 0, errors.New("need auth first")
 	}
 
+	token, err := packet.ContentToStruct[packet.AuthMsg](authMsg.Content)
+	if err != nil {
+		return 0, err
+	}
 	//todo: 验证token正确，返回uid
-	uid = 10
+	uid, err = util.VerifyToken(token.Token)
+	if err != nil {
+		return 0, err
+	}
 	log.Printf("user %d login success", err)
 	return
 }
@@ -128,6 +136,15 @@ func (s *Server) removeConn(uid int64) {
 	delete(s.container, uid)
 }
 
+func (s *Server) getConn(uid int64) (*socket.Conn, error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	if cn, ok := s.container[uid]; ok {
+		return cn, nil
+	}
+	return nil, errors.New("empty")
+}
+
 func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 	var resMsg *packet.Msg
 	//body := msg.Content
@@ -149,6 +166,25 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 
 		resMsg = packet.NewV1Msg(packet.ChatAck)
 		resMsg.Content = chatResp
+
+		toRecieveMsg := packet.NewV1Msg(packet.Chat)
+		chatTo := packet.SentChatMsg{
+			Text:      chatMsg.Text,
+			ReceiveID: chatMsg.ReceiveID,
+			Type:      packet.Text,
+			SenderID:  chatMsg.SenderID,
+			Timestamp: chatMsg.Timestamp,
+		}
+		cnn, err := s.getConn(chatMsg.ReceiveID)
+		if err != nil {
+			log.Println("not exist", chatMsg.ReceiveID)
+		}
+		toRecieveMsg.Content = chatTo
+		err = cnn.SendToWriteChan(context.Background(), toRecieveMsg)
+		if err != nil {
+			log.Println("send to write chan failed", err)
+		}
+		//todo: 改写到消息队列统一推送
 
 	case packet.ChatAck:
 
@@ -187,6 +223,7 @@ func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*pac
 		Sender: &packet.SenderInfo{
 			UserID: conn.Info.UserID,
 		},
+		Text:      msg.Text,
 		Timestamp: msg.Timestamp,
 	}
 
