@@ -2,13 +2,17 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"math/rand"
-	"time"
+	"log"
+	"ws/pkg/db/redis"
 	"ws/ws"
 )
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	err := redis.Init()
+	if err != nil {
+		log.Println("redis init failed", err)
+		panic(err)
+	}
 }
 
 func main() {
@@ -20,8 +24,4 @@ func main() {
 
 	r.Run(":60000")
 
-}
-
-func id() int64 {
-	return rand.Int63n(5000)
 }

@@ -30,8 +30,8 @@ type SentChatMsg struct {
 	ReceiveID int64       `json:"receiveID"`
 	Type      ChatMsgType `json:"type"`
 
-	SenderID  string `json:"senderID"`
-	Timestamp int64  `json:"timestamp"`
+	SenderID  int64 `json:"senderID"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 // ChatMsg 回执、通知类、收到的聊天的消息

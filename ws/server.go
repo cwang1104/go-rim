@@ -74,7 +74,7 @@ func (s *Server) login(wsConn *websocket.Conn) (uid int64, err error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Printf("user %d login success", err)
+	log.Printf("user %d login success", uid)
 	return
 }
 
@@ -85,6 +85,8 @@ func (s *Server) proc(WebSocketConn *websocket.Conn) {
 		return
 	}
 	conn := socket.NewConn(WebSocketConn)
+	conn.SetConnInfo(uid)
+
 	defer conn.Close()
 	s.addConn(conn, uid)
 
@@ -175,17 +177,18 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 			SenderID:  chatMsg.SenderID,
 			Timestamp: chatMsg.Timestamp,
 		}
+
 		cnn, err := s.getConn(chatMsg.ReceiveID)
 		if err != nil {
 			log.Println("not exist", chatMsg.ReceiveID)
-		}
-		toRecieveMsg.Content = chatTo
-		err = cnn.SendToWriteChan(context.Background(), toRecieveMsg)
-		if err != nil {
-			log.Println("send to write chan failed", err)
+		} else {
+			toRecieveMsg.Content = chatTo
+			err = cnn.SendToWriteChan(context.Background(), toRecieveMsg)
+			if err != nil {
+				log.Println("send to write chan failed", err)
+			}
 		}
 		//todo: 改写到消息队列统一推送
-
 	case packet.ChatAck:
 
 	case packet.Push:

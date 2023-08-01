@@ -21,7 +21,7 @@ const (
 const MsgVersionV1 uint8 = 1
 
 type ReadMsgType interface {
-	PingMessage | AuthMsg | SentChatMsg | ChatMsg | SentChatMsg
+	PingMessage | AuthMsg | SentChatMsg | ChatMsg
 }
 
 type ReadMsg[T ReadMsgType] struct {
