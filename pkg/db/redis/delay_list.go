@@ -8,13 +8,6 @@ import (
 	"time"
 )
 
-type Message struct {
-	Topic string        // 主题
-	Key   string        // key 消息唯一key
-	Body  []byte        // 消息体
-	Delay time.Duration // 延迟时间 秒
-}
-
 type DelayQueue struct{}
 
 func (d *DelayQueue) Push(ctx context.Context, msg *Message) error {

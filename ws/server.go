@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"ws/pkg/db/redis"
 	"ws/pkg/util"
 	"ws/ws/packet"
 	"ws/ws/socket"
@@ -169,26 +170,6 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 		resMsg = packet.NewV1Msg(packet.ChatAck)
 		resMsg.Content = chatResp
 
-		toRecieveMsg := packet.NewV1Msg(packet.Chat)
-		chatTo := packet.SentChatMsg{
-			Text:      chatMsg.Text,
-			ReceiveID: chatMsg.ReceiveID,
-			Type:      packet.Text,
-			SenderID:  chatMsg.SenderID,
-			Timestamp: chatMsg.Timestamp,
-		}
-
-		cnn, err := s.getConn(chatMsg.ReceiveID)
-		if err != nil {
-			log.Println("not exist", chatMsg.ReceiveID)
-		} else {
-			toRecieveMsg.Content = chatTo
-			err = cnn.SendToWriteChan(context.Background(), toRecieveMsg)
-			if err != nil {
-				log.Println("send to write chan failed", err)
-			}
-		}
-		//todo: 改写到消息队列统一推送
 	case packet.ChatAck:
 
 	case packet.Push:
@@ -222,7 +203,7 @@ func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*pac
 		IsPeerRead: packet.UnRead,
 		//IsReceive:  packet.TypeYes,
 		ReceiveID: msg.ReceiveID,
-		MsgType:   packet.Ack,
+		MsgType:   packet.AckSuccess,
 		Sender: &packet.SenderInfo{
 			UserID: conn.Info.UserID,
 		},
@@ -230,6 +211,21 @@ func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*pac
 		Timestamp: msg.Timestamp,
 	}
 
+	chatTo := packet.SentChatMsg{
+		Text:      msg.Text,
+		ReceiveID: msg.ReceiveID,
+		Type:      packet.Text,
+		SenderID:  msg.SenderID,
+		Timestamp: msg.Timestamp,
+	}
+
+	data, _ := json.Marshal(&chatTo)
+	listMsg := redis.NewChatPushMsg(data)
+	sList := redis.StreamList{}
+	err := sList.Push(context.Background(), listMsg)
+	if err != nil {
+		respMsg.MsgType = packet.AckFailed
+	}
 	return &respMsg, nil
 }
 

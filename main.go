@@ -21,6 +21,7 @@ func main() {
 	r.GET("/api/ws", func(c *gin.Context) {
 		ws.WsServer.JoinServer(c.Writer, c.Request, nil)
 	})
+	go ws.ConsumeChatPushMsg()
 
 	r.Run(":60000")
 

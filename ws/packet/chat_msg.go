@@ -8,7 +8,8 @@ const (
 	Text ChatMsgType = iota + 1
 	Img
 	Video
-	Ack
+	AckSuccess
+	AckFailed
 )
 
 type MsgReadStatus uint8
@@ -66,7 +67,7 @@ type SenderInfo struct {
 func NewMsgAck(toUserID int64, isRead MsgReadStatus, sender *SenderInfo, msgID int64) *ChatMsg {
 	return &ChatMsg{
 		ReceiveID: toUserID,
-		MsgType:   Ack,
+		MsgType:   AckSuccess,
 		IsRead:    isRead,
 		Sender:    sender,
 		MsgID:     msgID,

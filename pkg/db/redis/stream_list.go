@@ -42,6 +42,15 @@ type StreamConsume struct {
 	Topic     string
 }
 
+const (
+	ChatPushGroup1        = "ChatPushConsumeGroup1"
+	ChatPushGroup1Consume = "ChatPushConsumeGroup1-consume1"
+)
+
+func NewChatPushConsume() *StreamConsume {
+	return NewConsume(ChatPushTopic, ChatPushGroup1, ChatPushGroup1Consume)
+}
+
 func NewConsume(topic, group, consumer string) *StreamConsume {
 	s := &StreamConsume{
 		GroupName: group,
