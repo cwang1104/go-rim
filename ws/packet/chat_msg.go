@@ -72,6 +72,7 @@ func NewMsgAck(toUserID int64, isRead MsgReadStatus, sender *SenderInfo, msgID s
 		IsRead:    isRead,
 		Sender:    sender,
 		MsgID:     msgID,
+		IsReceive: TypeYes,
 		Timestamp: time.Now().Unix(),
 	}
 }

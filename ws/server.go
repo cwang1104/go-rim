@@ -112,6 +112,10 @@ func (s *Server) proc(WebSocketConn *websocket.Conn) {
 			return
 		case msg := <-conn.ReadFromReadChan():
 			timer.Reset(timeout)
+			if msg.MsgType != packet.Ping {
+				fmt.Printf("start msg \n %+v\n", msg)
+			}
+
 			s.handleMsg(conn, msg)
 		}
 	}
@@ -177,6 +181,12 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 		resMsg.Content = chatResp
 
 	case packet.ChatAck:
+		chatMsg, err := packet.ContentToStruct[packet.ChatMsg](msg.Content)
+		if err != nil {
+			return
+		}
+		s.handChatAckMsg(chatMsg)
+		return
 
 	case packet.Push:
 		return
@@ -196,6 +206,13 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 
 func (s *Server) handleQuitMsg(conn *socket.Conn) {
 	s.removeConn(conn.Info.UserID)
+}
+
+func (s *Server) handChatAckMsg(msg *packet.ChatMsg) {
+	if msg.IsReceive == packet.TypeYes {
+		redis.DelSendAckKey(msg.MsgID)
+	}
+	return
 }
 
 func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*packet.ChatMsg, error) {

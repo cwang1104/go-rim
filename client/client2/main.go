@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"log"
 	"time"
@@ -36,7 +38,7 @@ func GetMessage() {
 			}
 			//err := conn.WriteMessage(websocket.BinaryMessage, []byte("ping"+fmt.Sprintf("%d", i)))
 			err = conn.WriteJSON(pingMsg)
-			log.Println("send ping")
+			//log.Println("send ping")
 			if err != nil {
 				log.Println(err)
 				return
@@ -47,6 +49,7 @@ func GetMessage() {
 
 	sendMsg := packet.NewV1Msg(packet.Chat)
 	sendMsg.Content = packet.SentChatMsg{
+		MsgID:     uuid.NewString(),
 		Text:      "hello word,hello boy",
 		ReceiveID: 1,
 		Type:      packet.Text,
@@ -54,7 +57,7 @@ func GetMessage() {
 		Timestamp: time.Now().Unix(),
 	}
 
-	log.Println("send msg", sendMsg)
+	log.Printf("send msg\n,%+v\n", sendMsg)
 	err = conn.WriteJSON(sendMsg)
 	if err != nil {
 		log.Println(err)
@@ -63,13 +66,17 @@ func GetMessage() {
 
 	for {
 		conn.SetReadDeadline(time.Now().Add(time.Second * 10))
-		message_type, data, err := conn.ReadMessage()
+		_, data, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read msg error " + err.Error())
 			return
 		}
-		fmt.Println("msg" + string(data))
-		fmt.Println(message_type)
+		var msg packet.Msg
+		_ = json.Unmarshal(data, &msg)
+		if msg.MsgType != packet.Pong {
+			log.Println("msg", msg.Content)
+		}
+
 	}
 }
 
