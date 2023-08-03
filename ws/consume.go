@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"time"
 	"ws/pkg/db/redis"
 	"ws/ws/packet"
 )
@@ -41,5 +42,35 @@ func ConsumeChatPushMsg() {
 				}
 			}
 		}
+	}
+}
+
+func ConsumeDelayList() {
+	delay := redis.DelayQueue{}
+
+	listMsg := redis.NewChatPushMsg(nil)
+	for {
+		keys := delay.GetJobKeys(context.Background(), listMsg.Topic)
+		for _, v := range keys {
+			data := delay.GetJob(context.Background(), listMsg.Topic, v)
+			if data == "" {
+				continue
+			}
+			var chatMsg packet.SentChatMsg
+			err := json.Unmarshal([]byte(data), &chatMsg)
+			if err != nil {
+				log.Println("json unmarshal err", err, "str", data)
+				continue
+			}
+
+			ack := redis.GetSendAckKey(chatMsg.MsgID)
+			if ack == 1 {
+				sList := redis.StreamList{}
+				listMsg.Body = []byte(data)
+				_ = sList.Push(context.Background(), listMsg)
+			}
+			delay.Consume(context.Background(), listMsg.Topic, v)
+		}
+		time.Sleep(time.Second)
 	}
 }

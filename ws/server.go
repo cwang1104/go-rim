@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"log"
 	"net/http"
 	"sync"
@@ -36,11 +37,15 @@ type Server struct {
 
 var WsServer *Server
 
-func init() {
+func Init() {
 	WsServer = &Server{
 		context:   context.TODO(),
 		container: make(map[int64]*socket.Conn),
 	}
+
+	go ConsumeChatPushMsg()
+	go ConsumeDelayList()
+
 }
 
 func (s *Server) JoinServer(w http.ResponseWriter, r *http.Request, responseHeader http.Header) {
@@ -155,8 +160,10 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 	case packet.Ping:
 		resMsg = packet.NewV1Msg(packet.Pong)
 		resMsg.Content = packet.NewPongMessage()
+
 	case packet.Quit:
 		s.handleQuitMsg(conn)
+
 	case packet.Chat:
 		chatMsg, err := packet.ContentToStruct[packet.SentChatMsg](msg.Content)
 		if err != nil {
@@ -166,7 +173,6 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 		if err != nil {
 			return
 		}
-
 		resMsg = packet.NewV1Msg(packet.ChatAck)
 		resMsg.Content = chatResp
 
@@ -195,9 +201,13 @@ func (s *Server) handleQuitMsg(conn *socket.Conn) {
 func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*packet.ChatMsg, error) {
 	msg.Timestamp = time.Now().Unix()
 
+	if msg.MsgID == "" {
+		msg.MsgID = uuid.NewString()
+	}
+
 	respMsg := packet.ChatMsg{
 		SessionId:  0,
-		MsgID:      0,
+		MsgID:      msg.MsgID,
 		SeqID:      0,
 		IsRead:     packet.HasRead,
 		IsPeerRead: packet.UnRead,
@@ -212,6 +222,7 @@ func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*pac
 	}
 
 	chatTo := packet.SentChatMsg{
+		MsgID:     msg.MsgID,
 		Text:      msg.Text,
 		ReceiveID: msg.ReceiveID,
 		Type:      packet.Text,
@@ -226,6 +237,12 @@ func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*pac
 	if err != nil {
 		respMsg.MsgType = packet.AckFailed
 	}
+
+	redis.SetSendAckKey(chatTo.MsgID)
+
+	delay := redis.DelayQueue{}
+	_ = delay.Push(context.TODO(), listMsg)
+
 	return &respMsg, nil
 }
 

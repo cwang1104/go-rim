@@ -26,6 +26,7 @@ const (
 
 // SentChatMsg 单聊、发送的消息
 type SentChatMsg struct {
+	MsgID     string      `json:"msgID"` //消息id
 	Text      string      `json:"text"`
 	File      *FileInfo   `json:"file"`
 	ReceiveID int64       `json:"receiveID"`
@@ -39,7 +40,7 @@ type SentChatMsg struct {
 type ChatMsg struct {
 	SessionId  int64         `json:"sessionId"`
 	SeqID      int64         `json:"seqID"`      //消息排序id
-	MsgID      int64         `json:"msgID"`      //消息id
+	MsgID      string        `json:"msgID"`      //消息id
 	FileInfo   *FileInfo     `json:"fileInfo"`   //图片或者视频消息信息
 	IsRead     MsgReadStatus `json:"isRead"`     //是否已读
 	IsReceive  uint8         `json:"isReceive"`  //是否收到
@@ -64,7 +65,7 @@ type SenderInfo struct {
 	Avatar, Nickname string
 }
 
-func NewMsgAck(toUserID int64, isRead MsgReadStatus, sender *SenderInfo, msgID int64) *ChatMsg {
+func NewMsgAck(toUserID int64, isRead MsgReadStatus, sender *SenderInfo, msgID string) *ChatMsg {
 	return &ChatMsg{
 		ReceiveID: toUserID,
 		MsgType:   AckSuccess,

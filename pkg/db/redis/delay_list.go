@@ -38,8 +38,11 @@ func (d *DelayQueue) GetJobKeys(ctx context.Context, topic string) []string {
 		Min: strconv.FormatInt(mm-999, 10),
 		Max: strconv.FormatInt(mm, 10),
 	}).Val()
-
 	return keys
+}
+
+func (d *DelayQueue) GetJob(ctx context.Context, topic, key string) string {
+	return client.HGet(ctx, d.topicHash(topic), key).Val()
 }
 
 func (d *DelayQueue) Consume(ctx context.Context, topic, key string) {
