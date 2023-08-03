@@ -115,9 +115,9 @@ func (s *Server) proc(WebSocketConn *websocket.Conn) {
 			return
 		case msg := <-conn.ReadFromReadChan():
 			timer.Reset(timeout)
-			if msg.MsgType != packet.Ping {
-				fmt.Printf("start msg \n %+v\n", msg)
-			}
+			//if msg.MsgType != packet.Ping {
+			//	fmt.Printf("start msg \n %+v\n", msg)
+			//}
 
 			s.handleMsg(conn, msg)
 		}
@@ -212,6 +212,7 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 		if err != nil {
 			return
 		}
+		log.Printf("chatAck,%+v\n", chatMsg)
 		s.handChatAckMsg(chatMsg)
 		return
 
@@ -236,6 +237,7 @@ func (s *Server) handleQuitMsg(conn *socket.Conn) {
 }
 
 func (s *Server) handChatAckMsg(msg *packet.ChatMsg) {
+	log.Println("ack deal", msg.IsReceive)
 	if msg.IsReceive == packet.TypeYes {
 		redis.DelSendAckKey(msg.MsgID)
 	}
@@ -285,7 +287,8 @@ func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*pac
 	redis.SetSendAckKey(chatTo.MsgID)
 
 	delay := redis.DelayQueue{}
-	_ = delay.Push(context.TODO(), listMsg)
+	delayMsg := redis.NewChatPushDelay(data)
+	_ = delay.Push(context.TODO(), delayMsg)
 
 	return &respMsg, nil
 }

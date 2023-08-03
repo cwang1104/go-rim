@@ -13,12 +13,22 @@ type Message struct {
 }
 
 const (
-	ChatPushTopic = "ChatPush"
+	ChatPushTopic      = "ChatPush"
+	ChatPushDelayTopic = "ChatPush"
 )
 
 func NewChatPushMsg(body []byte) *Message {
 	return &Message{
 		Topic: ChatPushTopic,
+		Key:   uuid.NewString(),
+		Body:  body,
+		Delay: time.Second * 5,
+	}
+}
+
+func NewChatPushDelay(body []byte) *Message {
+	return &Message{
+		Topic: ChatPushDelayTopic,
 		Key:   uuid.NewString(),
 		Body:  body,
 		Delay: time.Second * 5,

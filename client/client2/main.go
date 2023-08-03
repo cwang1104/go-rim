@@ -30,7 +30,7 @@ func GetMessage() {
 			log.Println("send auth failed", err)
 			panic(err)
 		}
-
+		i := 0
 		for {
 			pingMsg := packet.NewV1Msg(packet.Ping)
 			pingMsg.Content = packet.PingMessage{
@@ -43,26 +43,30 @@ func GetMessage() {
 				log.Println(err)
 				return
 			}
-			time.Sleep(time.Second * 2)
+			time.Sleep(time.Second * 1)
+
+			i++
+			sendMsg := packet.NewV1Msg(packet.Chat)
+			sendMsg.Content = packet.SentChatMsg{
+				MsgID:     uuid.NewString(),
+				Text:      fmt.Sprintf("message %d", i),
+				ReceiveID: 1,
+				Type:      packet.Text,
+				SenderID:  2,
+				Timestamp: time.Now().Unix(),
+			}
+
+			err = conn.WriteJSON(sendMsg)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			if i == 50 {
+				return
+			}
+
 		}
 	}()
-
-	sendMsg := packet.NewV1Msg(packet.Chat)
-	sendMsg.Content = packet.SentChatMsg{
-		MsgID:     uuid.NewString(),
-		Text:      "hello word,hello boy",
-		ReceiveID: 1,
-		Type:      packet.Text,
-		SenderID:  2,
-		Timestamp: time.Now().Unix(),
-	}
-
-	log.Printf("send msg\n,%+v\n", sendMsg)
-	err = conn.WriteJSON(sendMsg)
-	if err != nil {
-		log.Println(err)
-		return
-	}
 
 	for {
 		conn.SetReadDeadline(time.Now().Add(time.Second * 10))

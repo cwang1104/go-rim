@@ -3,19 +3,30 @@ package redis
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 )
 
 func SetSendAckKey(msgId string) {
-	client.Set(context.TODO(), getSendExKey(msgId), 1, time.Second*15)
+	err := client.Set(context.TODO(), getSendExKey(msgId), 1, time.Second*15).Err()
+	if err != nil {
+		log.Println("SetSendAckKey err", err, "msgId", msgId)
+	}
 }
 
 func DelSendAckKey(msgId string) {
-	client.Del(context.Background(), getSendExKey(msgId))
+	key, err := client.GetDel(context.Background(), getSendExKey(msgId)).Result()
+	if err != nil {
+		log.Println("DelSendAckKey err", err, "msgId", msgId)
+	}
+	log.Println(getSendExKey(msgId), key)
 }
 
 func GetSendAckKey(msgId string) int {
-	a, _ := client.Get(context.Background(), getSendExKey(msgId)).Int()
+	a, err := client.Get(context.Background(), getSendExKey(msgId)).Int()
+	if err != nil {
+		log.Println("GetSendAckKey err", err, "msgId", msgId, "a", a)
+	}
 	return a
 }
 

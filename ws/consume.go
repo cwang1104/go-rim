@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 	"ws/pkg/db/redis"
@@ -58,11 +59,12 @@ func ConsumeChatPushMsg() {
 func ConsumeDelayList() {
 	delay := redis.DelayQueue{}
 
-	listMsg := redis.NewChatPushMsg(nil)
+	delayMsg := redis.NewChatPushDelay(nil)
+
 	for {
-		keys := delay.GetJobKeys(context.Background(), listMsg.Topic)
+		keys := delay.GetJobKeys(context.Background(), delayMsg.Topic)
 		for _, v := range keys {
-			data := delay.GetJob(context.Background(), listMsg.Topic, v)
+			data := delay.GetJob(context.Background(), delayMsg.Topic, v)
 			if data == "" {
 				continue
 			}
@@ -75,13 +77,19 @@ func ConsumeDelayList() {
 
 			ack := redis.GetSendAckKey(chatMsg.MsgID)
 			if ack == 1 {
+				streamMsg := redis.NewChatPushMsg(nil)
 				chatMsg.ReSend = true
 				chatData, _ := json.Marshal(&chatMsg)
 				sList := redis.StreamList{}
-				listMsg.Body = chatData
-				_ = sList.Push(context.Background(), listMsg)
+				streamMsg.Body = chatData
+
+				fmt.Println("----------------------------------")
+				fmt.Printf("resend msg\n%v\n", chatMsg.MsgID)
+				fmt.Println("----------------------------------")
+
+				_ = sList.Push(context.Background(), streamMsg)
 			}
-			delay.Consume(context.Background(), listMsg.Topic, v)
+			delay.Consume(context.Background(), delayMsg.Topic, v)
 		}
 		time.Sleep(time.Second)
 	}

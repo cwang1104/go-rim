@@ -9,6 +9,9 @@ import (
 	"ws/ws/packet"
 )
 
+var sendChan = make(chan []byte, 10000)
+var messageMap = make(map[string]struct{})
+
 func GetMessage() {
 	url := "ws://127.0.0.1:60000/api/ws"
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
@@ -18,34 +21,36 @@ func GetMessage() {
 	}
 	defer conn.Close()
 
-	go func() {
-		loginMsg := packet.NewV1Msg(packet.Auth)
-		loginMsg.Content = packet.AuthMsg{
-			Token: "token1",
-		}
+	loginMsg := packet.NewV1Msg(packet.Auth)
+	loginMsg.Content = packet.AuthMsg{
+		Token: "token1",
+	}
 
-		err = conn.WriteJSON(loginMsg)
-		if err != nil {
-			log.Println("send auth failed", err)
-			panic(err)
-		}
+	conn.WriteJSON(loginMsg)
+
+	go func() {
 
 		for {
 			pingMsg := packet.NewV1Msg(packet.Ping)
 			pingMsg.Content = packet.PingMessage{
 				Text: "ping",
 			}
-			//err := conn.WriteMessage(websocket.BinaryMessage, []byte("ping"+fmt.Sprintf("%d", i)))
-			err = conn.WriteJSON(pingMsg)
-			//log.Println("send ping")
-			if err != nil {
-				log.Println(err)
-				return
-			}
+			data, _ := json.Marshal(&pingMsg)
+			sendChan <- data
 			time.Sleep(time.Second * 2)
 		}
 	}()
 
+	go func(conn *websocket.Conn) {
+		for {
+			select {
+			case data := <-sendChan:
+				conn.WriteMessage(websocket.BinaryMessage, data)
+			}
+		}
+	}(conn)
+
+	i := 0
 	for {
 		conn.SetReadDeadline(time.Now().Add(time.Second * 10))
 		_, data, err := conn.ReadMessage()
@@ -56,18 +61,22 @@ func GetMessage() {
 
 		var msg packet.Msg
 		_ = json.Unmarshal(data, &msg)
+
 		if msg.MsgType == packet.Chat {
 			chatMsg, err := packet.ContentToStruct[packet.SentChatMsg](msg.Content)
 			if err != nil {
 				log.Println("Err", err)
 				continue
 			}
-			log.Println("message", chatMsg.Text)
-			log.Println("message-id", chatMsg.MsgID)
+			i++
+
 			chatAckMsg := packet.NewMsgAck(0, 0, nil, chatMsg.MsgID)
 			msg.Content = chatAckMsg
 			msg.MsgType = packet.ChatAck
-			_ = conn.WriteJSON(msg)
+			messageMap[chatMsg.MsgID] = struct{}{}
+			data, _ := json.Marshal(&msg)
+			log.Println("message ", chatMsg.Text, " count ", len(messageMap))
+			sendChan <- data
 		}
 
 	}
