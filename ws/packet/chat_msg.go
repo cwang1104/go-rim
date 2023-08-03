@@ -36,6 +36,11 @@ type SentChatMsg struct {
 	Timestamp int64 `json:"timestamp"`
 }
 
+type SentChatMsgPush struct {
+	SentChatMsg
+	ReSend bool
+}
+
 // ChatMsg 回执、通知类、收到的聊天的消息
 type ChatMsg struct {
 	SessionId  int64         `json:"sessionId"`

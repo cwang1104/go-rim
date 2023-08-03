@@ -19,24 +19,34 @@ func ConsumeChatPushMsg() {
 				if !ok {
 					continue
 				}
-				var chatMsg packet.SentChatMsg
+				var chatMsg packet.SentChatMsgPush
 				err := json.Unmarshal([]byte(data), &chatMsg)
 				if err != nil {
 					log.Println("json unmarshal err", err, "str", data)
 					continue
 				}
 
-				conn, err := WsServer.getConn(chatMsg.ReceiveID)
-				if err != nil {
-					log.Printf("user %d is offline", chatMsg.ReceiveID)
-					continue
+				offline := redis.OfflineList{
+					Uid: chatMsg.ReceiveID,
 				}
 
 				sendMsg := packet.NewV1Msg(packet.Chat)
 				sendMsg.Content = chatMsg
 
+				conn, err := WsServer.getConn(chatMsg.ReceiveID)
+				if err != nil {
+					if chatMsg.ReSend {
+						_ = offline.Push(context.Background(), []byte(data))
+					}
+					log.Printf("user %d is offline", chatMsg.ReceiveID)
+					continue
+				}
+
 				err = conn.SendToWriteChan(context.Background(), sendMsg)
 				if err != nil {
+					if chatMsg.ReSend {
+						_ = offline.Push(context.Background(), []byte(data))
+					}
 					log.Printf("send to failed,err = %v", err)
 					continue
 				}
@@ -56,7 +66,7 @@ func ConsumeDelayList() {
 			if data == "" {
 				continue
 			}
-			var chatMsg packet.SentChatMsg
+			var chatMsg packet.SentChatMsgPush
 			err := json.Unmarshal([]byte(data), &chatMsg)
 			if err != nil {
 				log.Println("json unmarshal err", err, "str", data)
@@ -65,8 +75,10 @@ func ConsumeDelayList() {
 
 			ack := redis.GetSendAckKey(chatMsg.MsgID)
 			if ack == 1 {
+				chatMsg.ReSend = true
+				chatData, _ := json.Marshal(&chatMsg)
 				sList := redis.StreamList{}
-				listMsg.Body = []byte(data)
+				listMsg.Body = chatData
 				_ = sList.Push(context.Background(), listMsg)
 			}
 			delay.Consume(context.Background(), listMsg.Topic, v)

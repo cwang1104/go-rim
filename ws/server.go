@@ -96,6 +96,8 @@ func (s *Server) proc(WebSocketConn *websocket.Conn) {
 	defer conn.Close()
 	s.addConn(conn, uid)
 
+	go s.sendOfflineList(uid)
+
 	go conn.Reader()
 	go conn.Writer()
 
@@ -109,6 +111,7 @@ func (s *Server) proc(WebSocketConn *websocket.Conn) {
 			return
 		case <-conn.Done():
 			log.Println("done ", conn.Info.UserID)
+			s.Close(conn.Info.UserID)
 			return
 		case msg := <-conn.ReadFromReadChan():
 			timer.Reset(timeout)
@@ -136,6 +139,30 @@ func (s *Server) addConn(conn *socket.Conn, uid int64) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	s.container[uid] = conn
+}
+
+func (s *Server) sendOfflineList(uid int64) {
+	of := redis.OfflineList{
+		Uid: uid,
+	}
+
+	sl := redis.StreamList{}
+	//delay := redis.DelayQueue{}
+
+	for {
+		data := of.GetOne(context.Background())
+		if data == "" {
+			break
+		}
+
+		var chat packet.SentChatMsgPush
+		err := json.Unmarshal([]byte(data), &chat)
+		if err != nil {
+			continue
+		}
+		msg := redis.NewChatPushMsg([]byte(data))
+		_ = sl.Push(context.Background(), msg)
+	}
 }
 
 func (s *Server) removeConn(uid int64) {
