@@ -64,7 +64,7 @@ func (s *StreamConsume) GetJobs(ctx context.Context, count int64) ([]redis.XMess
 		Count:    count,
 	}).Result()
 	if err != nil && err != redis.Nil {
-		log.Println("err", err)
+		log.Println("XReadGroup err", err)
 		return nil, err
 	}
 	if msg != nil {
@@ -73,12 +73,12 @@ func (s *StreamConsume) GetJobs(ctx context.Context, count int64) ([]redis.XMess
 	return nil, nil
 }
 
-func (s *StreamConsume) Consume(ctx context.Context, topic string, id string, group string) error {
-	return client.XAck(ctx, topic, group, id).Err()
+func (s *StreamConsume) Consume(ctx context.Context, id string) error {
+	return client.XAck(ctx, s.Topic, s.GroupName, id).Err()
 }
 
 func (s *StreamConsume) createConsumeGroup(ctx context.Context) error {
-	return client.XGroupCreate(ctx, s.Topic, s.GroupName, "0").Err()
+	return client.XGroupCreateMkStream(ctx, s.Topic, s.GroupName, "0").Err()
 }
 
 func (s *StreamConsume) createConsumer(ctx context.Context) error {
