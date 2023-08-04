@@ -25,10 +25,26 @@ func GetMessage() {
 
 	loginMsg := packet.NewV1Msg(packet.Auth)
 	loginMsg.Content = packet.AuthMsg{
-		Token: "token1",
+		Token: "token4",
 	}
 
 	conn.WriteJSON(loginMsg)
+
+	go func() {
+		for i := 0; i < 20; i++ {
+			sendMsg := packet.NewV1Msg(packet.Chat)
+			sendMsg.Content = packet.SentChatMsg{
+				MsgID:     uuid.NewString(),
+				Text:      fmt.Sprintf("message %d", i),
+				ReceiveID: util.RandomInt(1, 3),
+				Type:      packet.Text,
+				SenderID:  1,
+				Timestamp: time.Now().Unix(),
+			}
+			data, _ := json.Marshal(&sendMsg)
+			sendChan <- data
+		}
+	}()
 
 	go func() {
 
@@ -40,22 +56,6 @@ func GetMessage() {
 			data, _ := json.Marshal(&pingMsg)
 			sendChan <- data
 			time.Sleep(time.Second * 2)
-		}
-	}()
-
-	go func() {
-		for i := 0; i < 20; i++ {
-			sendMsg := packet.NewV1Msg(packet.Chat)
-			sendMsg.Content = packet.SentChatMsg{
-				MsgID:     uuid.NewString(),
-				Text:      fmt.Sprintf("message %d", i),
-				ReceiveID: util.RandomInt(2, 4),
-				Type:      packet.Text,
-				SenderID:  1,
-				Timestamp: time.Now().Unix(),
-			}
-			data, _ := json.Marshal(&sendMsg)
-			sendChan <- data
 		}
 	}()
 

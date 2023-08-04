@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"time"
+	"ws/pkg/util"
 	"ws/ws/packet"
 )
 
@@ -46,25 +47,31 @@ func GetMessage() {
 			time.Sleep(time.Second * 1)
 
 			i++
-			sendMsg := packet.NewV1Msg(packet.Chat)
-			sendMsg.Content = packet.SentChatMsg{
-				MsgID:     uuid.NewString(),
-				Text:      fmt.Sprintf("message %d", i),
-				ReceiveID: 1,
-				Type:      packet.Text,
-				SenderID:  2,
-				Timestamp: time.Now().Unix(),
-			}
+			if i < 21 {
+				var re int64 = 0
+				for {
+					id := util.RandomInt(1, 4)
+					if id != 2 {
+						re = id
+						break
+					}
+				}
+				sendMsg := packet.NewV1Msg(packet.Chat)
+				sendMsg.Content = packet.SentChatMsg{
+					MsgID:     uuid.NewString(),
+					Text:      fmt.Sprintf("message %d", i),
+					ReceiveID: re,
+					Type:      packet.Text,
+					SenderID:  2,
+					Timestamp: time.Now().Unix(),
+				}
 
-			err = conn.WriteJSON(sendMsg)
-			if err != nil {
-				log.Println(err)
-				return
+				err = conn.WriteJSON(sendMsg)
+				if err != nil {
+					log.Println(err)
+					return
+				}
 			}
-			if i == 2 {
-				return
-			}
-
 		}
 	}()
 
