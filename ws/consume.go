@@ -62,7 +62,7 @@ func ConsumeDelayList() {
 	delayMsg := redis.NewChatPushDelay(nil)
 
 	for {
-		keys := delay.GetJobKeys(context.Background(), delayMsg.Topic)
+		keys := delay.GetJobKeys(context.Background(), delayMsg.Topic, 1000)
 		for _, v := range keys {
 			data := delay.GetJob(context.Background(), delayMsg.Topic, v)
 			if data == "" {

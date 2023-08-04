@@ -61,7 +61,7 @@ func GetMessage() {
 				log.Println(err)
 				return
 			}
-			if i == 50 {
+			if i == 2 {
 				return
 			}
 
