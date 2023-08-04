@@ -212,7 +212,6 @@ func (s *Server) handleMsg(conn *socket.Conn, msg *packet.Msg) {
 		if err != nil {
 			return
 		}
-		log.Printf("chatAck,%+v\n", chatMsg)
 		s.handChatAckMsg(chatMsg)
 		return
 
@@ -237,7 +236,7 @@ func (s *Server) handleQuitMsg(conn *socket.Conn) {
 }
 
 func (s *Server) handChatAckMsg(msg *packet.ChatMsg) {
-	log.Println("ack deal", msg.IsReceive)
+	//log.Println("ack deal", msg.IsReceive)
 	if msg.IsReceive == packet.TypeYes {
 		redis.DelSendAckKey(msg.MsgID)
 	}
@@ -279,17 +278,19 @@ func (s *Server) handleChatMsg(conn *socket.Conn, msg *packet.SentChatMsg) (*pac
 	data, _ := json.Marshal(&chatTo)
 	listMsg := redis.NewChatPushMsg(data)
 	sList := redis.StreamList{}
-	err := sList.Push(context.Background(), listMsg)
-	if err != nil {
-		respMsg.MsgType = packet.AckFailed
-	}
 
 	redis.SetSendAckKey(chatTo.MsgID)
+
+	err := sList.Push(context.Background(), listMsg)
+	if err != nil {
+		redis.DelSendAckKey(chatTo.MsgID)
+		respMsg.MsgType = packet.AckFailed
+		return &respMsg, err
+	}
 
 	delay := redis.DelayQueue{}
 	delayMsg := redis.NewChatPushDelay(data)
 	_ = delay.Push(context.TODO(), delayMsg)
-
 	return &respMsg, nil
 }
 

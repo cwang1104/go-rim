@@ -14,7 +14,7 @@ type Message struct {
 
 const (
 	ChatPushTopic      = "ChatPush"
-	ChatPushDelayTopic = "ChatPush"
+	ChatPushDelayTopic = "ChatPushDelayQueue"
 )
 
 func NewChatPushMsg(body []byte) *Message {

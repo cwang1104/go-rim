@@ -11,7 +11,7 @@ import (
 type DelayQueue struct{}
 
 func (d *DelayQueue) Push(ctx context.Context, msg *Message) error {
-	readyTime := time.Now().Add(msg.Delay).UnixMilli()
+	readyTime := time.Now().Add(msg.Delay).Unix()
 	pip := client.TxPipeline()
 	pip.ZAdd(ctx, d.topicZSet(msg.Topic), redis.Z{
 		Score:  float64(readyTime),
@@ -33,9 +33,9 @@ func (d *DelayQueue) Push(ctx context.Context, msg *Message) error {
 }
 
 func (d *DelayQueue) GetJobKeys(ctx context.Context, topic string) []string {
-	mm := time.Now().UnixMilli()
+	mm := time.Now().Unix()
 	keys := client.ZRangeByScore(ctx, d.topicZSet(topic), &redis.ZRangeBy{
-		Min: strconv.FormatInt(mm-1000, 10),
+		Min: "-inf",
 		Max: strconv.FormatInt(mm, 10),
 	}).Val()
 	return keys

@@ -27,14 +27,18 @@ func TestDelayQueue_GetJobs(t *testing.T) {
 		}
 		err := q.Push(context.TODO(), &msg)
 		require.NoError(t, err)
-	}
-
-	for i := 0; i < 12; i++ {
-		keys := q.GetJobKeys(context.TODO(), topic)
-		log.Println("keys", keys)
-		//for _, v := range keys {
-		//	q.Consume(context.TODO(), topic, v)
-		//}
 		time.Sleep(time.Second)
 	}
+
+	go func() {
+		for i := 0; i < 12; i++ {
+			keys := q.GetJobKeys(context.TODO(), topic)
+			log.Println("keys", keys, time.Now().String())
+			//for _, v := range keys {
+			//	q.Consume(context.TODO(), topic, v)
+			//}
+			time.Sleep(time.Second)
+		}
+	}()
+
 }

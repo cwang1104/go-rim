@@ -3,7 +3,6 @@ package ws
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"time"
 	"ws/pkg/db/redis"
@@ -51,6 +50,7 @@ func ConsumeChatPushMsg() {
 					log.Printf("send to failed,err = %v", err)
 					continue
 				}
+
 			}
 		}
 	}
@@ -82,11 +82,6 @@ func ConsumeDelayList() {
 				chatData, _ := json.Marshal(&chatMsg)
 				sList := redis.StreamList{}
 				streamMsg.Body = chatData
-
-				fmt.Println("----------------------------------")
-				fmt.Printf("resend msg\n%v\n", chatMsg.MsgID)
-				fmt.Println("----------------------------------")
-
 				_ = sList.Push(context.Background(), streamMsg)
 			}
 			delay.Consume(context.Background(), delayMsg.Topic, v)
