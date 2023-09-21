@@ -24,10 +24,10 @@ func GetClient() *redis.Client {
 
 func New() (*redis.Client, error) {
 	opt := redis.Options{
-		Addr:            "120.24.45.199:56379",
+		Addr:            "1",
 		DB:              1,
 		Username:        "",
-		Password:        "123456",
+		Password:        "111",
 		PoolSize:        10,
 		MinIdleConns:    256,
 		ConnMaxIdleTime: time.Second * time.Duration(120),
